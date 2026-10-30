@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>풍선깨기 PLUS</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:18px;background:#070e20;color:#fff;font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif}
+.wrap{max-width:560px;margin:auto;background:#0b1530;border:1px solid #304a83;border-radius:16px;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:20px;font-weight:800}
+.stats{display:flex;gap:6px;margin-bottom:12px}.stat{flex:1;min-width:0;text-align:center;background:#19294a;border-radius:9px;padding:8px 2px;color:#bcd0f8;font-size:11px}.stat b{display:block;font-size:19px;color:#fff;margin-top:3px}
+canvas{display:block;width:100%;height:auto;border-radius:10px;background:#081127;touch-action:none}
+.controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+button{background:#263d73;color:white;border:1px solid #526da9;border-radius:10px;padding:12px;font-weight:700;font-size:15px;cursor:pointer}button:active{background:#6654d9}
+.overlay{text-align:center;padding:15px;margin-top:10px;border-radius:12px;background:#142345}.overlay h2{margin:0 0 8px}.overlay p{font-size:14px;color:#d5e2ff;line-height:1.5}
+.help{font-size:12px;color:#bcd0f8;line-height:1.7;margin:12px 2px 2px}
+.temp-test{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#142345;border:1px solid #304a83;border-radius:10px;padding:10px;margin:0 0 12px;font-size:13px;color:#d5e2ff}.temp-test input{width:82px;background:#081127;border:1px solid #526da9;border-radius:7px;color:white;padding:8px;font-size:15px}.temp-test button{padding:8px 10px;font-size:13px}.temp-test #tempStatus{width:100%;font-size:12px;color:#bcd0f8}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><span>🎈 풍선깨기 PLUS</span><span style="font-size:14px">단계 <b id="level">1</b></span></header>
+<div class="stats"><div class="stat">점수<b id="score">0</b></div><div class="stat">서울 오늘 날씨<b style="font-size:15px">☀️ 13°C</b><span id="weatherEffect" style="display:block;font-size:9px;color:#bcd0f8">맑음 · 강수 0% · 공속 +15%</span></div><div class="stat">목숨<b id="lives">❤️❤️❤️</b></div><div class="stat">공 개수<b id="count">1</b></div></div>
+<div class="temp-test"><label for="temperature">🧪 테스트용 기온 (°C)</label><input id="temperature" type="number" min="-50" max="60" step="1" value="13"><button id="applyTemp" type="button">기온 적용</button><span id="tempStatus">10°C 초과: 공속 +15%</span></div>
+<canvas id="game" width="480" height="560" aria-label="풍선깨기 게임"></canvas>
+<div class="overlay" id="overlay"><h2 id="otitle">🎈 풍선깨기</h2><p id="omsg">아이템을 먹어 공을 추가해 봐!</p><button id="start">▶ 게임 시작</button></div>
+<div class="controls"><button id="left">⬅️ 왼쪽</button><button id="launch">시작 / 발사</button><button id="right">오른쪽 ➡️</button></div>
+<div class="help">🎯 +1 / +2 / +3 = 공 추가 · ❤️ = 목숨 추가 · 🟦 W = 넓은 패들<br>키보드 ← → / 스페이스바 또는 마우스·터치로 이동<br>💠 일부 풍선은 두 번 맞혀야 터져. 단계가 올라갈수록 공이 빨라져!<br>🌦️ 날씨 효과: 맑음 +15% · 흐림 기본 · 비/눈 -15%</div>
+</div>
+<script>
+(()=>{
+const $=id=>document.getElementById(id),cv=$('game'),c=cv.getContext('2d'),W=480,H=560;
+let level=1,score=0,lives=3,bricks=[],balls=[],items=[],parts=[],running=false,ended=false,dir=0,px=240,last=0,wideUntil=0,raf=0,pw=94;
+// 테스트용 기온에 따라 공 속도를 조절: 10°C 초과 +15%, 1~10°C 기본, 0°C 이하 -15%
+let temperature=13;
+let weatherSpeed=speedForTemperature(temperature);
+function speedForTemperature(temp){return temp<=0?0.85:temp<=10?1.00:1.15}
+function updateWeatherUI(){const label=temperature<=0?'추움 · 공속 -15%':temperature<=10?'선선함 · 공속 기본':'따뜻함 · 공속 +15%';$('weatherEffect').textContent=`테스트 ${temperature}°C · ${label}`;$('tempStatus').textContent=label;$('temperature').value=temperature;$('weatherEffect').style.fontSize='9px'}
+$('applyTemp').addEventListener('click',()=>{const input=Number($('temperature').value);if($('temperature').value.trim()===''||!Number.isFinite(input)||input < -50||input>60){$('tempStatus').textContent='-50°C부터 60°C 사이로 입력해 줘.';return}const nextSpeed=speedForTemperature(input);const ratio=nextSpeed/weatherSpeed;balls.forEach(b=>{b.vx*=ratio;b.vy*=ratio});temperature=input;weatherSpeed=nextSpeed;updateWeatherUI();});
+const colors=['#ff477e','#ffbe35','#37c9ff','#7be58a','#bd70ff','#ff874b'];
+function stats(){$('level').textContent=level;$('score').textContent=score;$('lives').textContent='❤️'.repeat(Math.min(lives,8))+(lives>8?' +'+(lives-8):'');$('count').textContent=balls.length}
+function newBall(x,y,vx,vy){return{x,y,vx,vy,r:7}}
+function resetBalls(){balls=[newBall(px,502,(Math.random()-.5)*3*weatherSpeed,-4*(1+(level-1)*.2)*weatherSpeed)]}
+function make(){bricks=[];let rows=Math.min(3+level,7);for(let r=0;r<rows;r++)for(let j=0;j<8;j++){let tough=level>=2&&(r+j)%4===0;bricks.push({x:12+j*56,y:48+r*49,w:48,h:39,color:colors[(j+r*2)%6],hp:tough?2:1,alive:true})}}
+function overlay(title,msg,btn){$('otitle').textContent=title;$('omsg').textContent=msg;$('start').textContent=btn;$('overlay').style.display='block'}
+function hide(){ $('overlay').style.display='none'}
+function reset(){cancelAnimationFrame(raf);level=1;score=0;lives=3;px=240;pw=94;wideUntil=0;items=[];parts=[];make();resetBalls();ended=false;running=false;stats();updateWeatherUI();overlay('🎈 풍선깨기','아이템을 먹어 공을 추가해 봐!','▶ 게임 시작');draw()}
+function start(){if(ended)reset();hide();running=true;last=0;raf=requestAnimationFrame(loop)}
+function next(){level++;make();items=[];pw=94;px=240;resetBalls();ended=false;stats();hide();running=true;last=0;raf=requestAnimationFrame(loop)}
+function finish(win){running=false;ended=true;overlay(win?'🎉 단계 클리어!':'게임 오버',win?`레벨 ${level} 완료! 다음 레벨은 더 빨라져.`:`최종 점수 ${score}점`,win?'다음 단계 ▶':'다시 하기 ↻')}
+$('start').onclick=()=>{if(ended&&bricks.every(b=>!b.alive))next();else start()};
+$('launch').onclick=()=>{if(!running){if(ended&&bricks.every(b=>!b.alive))next();else start()}};
+function move(x){px=Math.max(pw/2,Math.min(W-pw/2,x))}
+cv.addEventListener('pointermove',e=>{let r=cv.getBoundingClientRect();move((e.clientX-r.left)/r.width*W)});
+cv.addEventListener('pointerdown',e=>{let r=cv.getBoundingClientRect();move((e.clientX-r.left)/r.width*W);if(!running)start()});
+function hold(id,d){let el=$(id);el.onpointerdown=e=>{e.preventDefault();dir=d;el.setPointerCapture(e.pointerId)};['pointerup','pointercancel','lostpointercapture'].forEach(ev=>el.addEventListener(ev,()=>dir=0))}
+hold('left',-1);hold('right',1);
+window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();if(e.key==='ArrowLeft')dir=-1;if(e.key==='ArrowRight')dir=1;if(e.key===' '&&!running){if(ended&&bricks.every(b=>!b.alive))next();else start()}});
+window.addEventListener('keyup',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight')dir=0});
+function drop(x,y){if(Math.random()>.4)return;let n=Math.floor(Math.random()*3)+1;items.push({x,y,vy:2,type:'balls',n})}
+function addBalls(n){let source=balls.slice();if(!source.length)return;for(let i=0;i<n;i++){let s=source[i%source.length],angle=-Math.PI/2+(Math.random()-.5)*1.8,speed=Math.max(4,Math.hypot(s.vx,s.vy));balls.push(newBall(s.x,s.y,Math.cos(angle)*speed,Math.sin(angle)*speed))}stats();overlay('✨ 공 추가!',`공 ${balls.length}개! 계속 플레이해!`,'계속 플레이');setTimeout(()=>{if(running)hide()},900)}
+function burst(x,y,color){for(let i=0;i<7;i++)parts.push({x,y,vx:(Math.random()-.5)*4,vy:(Math.random()-.5)*4,life:22,color})}
+function draw(){c.clearRect(0,0,W,H);c.fillStyle='#081127';c.fillRect(0,0,W,H);c.strokeStyle='rgba(110,150,255,.08)';for(let x=20;x<W;x+=30){c.beginPath();c.moveTo(x,0);c.lineTo(x,H);c.stroke()}
+bricks.forEach(b=>{if(!b.alive)return;let x=b.x+b.w/2,y=b.y+15;c.save();c.fillStyle=b.color;c.shadowColor=b.color;c.shadowBlur=9;c.beginPath();c.ellipse(x,y,21,14,0,0,7);c.fill();c.shadowBlur=0;c.fillStyle='white';c.globalAlpha=.7;c.beginPath();c.ellipse(x-7,y-6,3,5,-.5,0,7);c.fill();c.globalAlpha=1;c.fillStyle=b.color;c.beginPath();c.moveTo(x-4,y+12);c.lineTo(x+4,y+12);c.lineTo(x,y+19);c.fill();if(b.hp===2){c.strokeStyle='white';c.beginPath();c.moveTo(x+3,y-8);c.lineTo(x-3,y);c.lineTo(x+3,y+5);c.stroke()}c.restore()});
+items.forEach(it=>{c.save();c.fillStyle=it.type==='life'?'#ff477e':it.type==='wide'?'#37c9ff':'#ffd34d';c.shadowColor=c.fillStyle;c.shadowBlur=10;c.beginPath();c.arc(it.x,it.y,12,0,7);c.fill();c.shadowBlur=0;c.fillStyle='#101a35';c.font='bold 10px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(it.type==='life'?'❤️':it.type==='wide'?'W':'+'+it.n,it.x,it.y);c.restore()});
+parts.forEach(p=>{c.globalAlpha=Math.max(0,p.life/22);c.fillStyle=p.color;c.fillRect(p.x,p.y,3,3)});c.globalAlpha=1;
+c.save();c.fillStyle='#27bfff';c.shadowColor='#27bfff';c.shadowBlur=12;c.beginPath();c.roundRect(px-pw/2,515,pw,12,6);c.fill();c.restore();
+balls.forEach(b=>{let a=Math.atan2(b.vy,b.vx);c.save();c.translate(b.x,b.y);c.rotate(a+Math.PI/2);c.fillStyle='#effcff';c.strokeStyle='#62dfff';c.shadowColor='#9ceaff';c.shadowBlur=12;c.beginPath();c.moveTo(0,-12);c.lineTo(8,6);c.lineTo(0,3);c.lineTo(-8,6);c.closePath();c.fill();c.stroke();c.restore()})}
+function loop(t){if(!running)return;let dt=Math.min((t-(last||t))/16.67,2);last=t;px=Math.max(pw/2,Math.min(W-pw/2,px+dir*6*dt));if(t>wideUntil&&pw!==94)pw=94;
+for(let i=balls.length-1;i>=0;i--){let b=balls[i];b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.x<b.r){b.x=b.r;b.vx=Math.abs(b.vx)}if(b.x>W-b.r){b.x=W-b.r;b.vx=-Math.abs(b.vx)}if(b.y<b.r){b.y=b.r;b.vy=Math.abs(b.vy)}
+if(b.vy>0&&b.y+b.r>=515&&b.y<530&&b.x>=px-pw/2-2&&b.x<=px+pw/2+2){b.y=505;let hit=(b.x-px)/(pw/2),sp=Math.min(10,Math.hypot(b.vx,b.vy)+.08);b.vx=hit*sp*.85;b.vy=-Math.sqrt(Math.max(8,sp*sp-b.vx*b.vx))}
+for(let br of bricks){if(!br.alive)continue;if(b.x+7>br.x&&b.x-7<br.x+br.w&&b.y+7>br.y&&b.y-7<br.y+br.h){let prev=b.y-b.vy*dt;if(prev+7<=br.y||prev-7>=br.y+br.h)b.vy*=-1;else b.vx*=-1;br.hp--;if(br.hp<=0){br.alive=false;score+=10;burst(br.x+24,br.y+18,br.color);drop(br.x+24,br.y+18)}else burst(br.x+24,br.y+18,'white');break}}
+if(b.y>H+15)balls.splice(i,1)}
+if(!balls.length){lives--;stats();if(lives<=0){draw();finish(false);return}resetBalls()}
+for(let i=items.length-1;i>=0;i--){let it=items[i];it.y+=it.vy*dt;if(it.y+12>=515&&it.y-12<=527&&it.x>=px-pw/2&&it.x<=px+pw/2){if(it.type==='balls')addBalls(it.n);else if(it.type==='life')lives++;else{pw=Math.min(155,pw+45);wideUntil=t+8000}items.splice(i,1);stats();continue}if(it.y>H+15)items.splice(i,1)}
+parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt});parts=parts.filter(p=>p.life>0);if(bricks.every(b=>!b.alive)){draw();finish(true);return}stats();draw();raf=requestAnimationFrame(loop)}
+reset();
+})();
+</script>
+</body>
+</html>

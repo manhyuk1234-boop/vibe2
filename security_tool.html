@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>정보 보안 아카데미 - 비밀번호 검사기</title>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #1e293b;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            width: 450px;
+            border: 2px solid #38bdf8;
+        }
+        h2 {
+            text-align: center;
+            color: #38bdf8;
+            margin-bottom: 25px;
+            font-size: 24px;
+        }
+        .section {
+            background-color: #0f172a;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+        }
+        h3 {
+            margin-top: 0;
+            color: #e2e8f0;
+            font-size: 16px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 8px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 15px;
+            margin-bottom: 12px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #38bdf8;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #38bdf8;
+            color: #0f172a;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #7dd3fc;
+        }
+        .result-box {
+            margin-top: 12px;
+            padding: 12px;
+            background-color: #1e293b;
+            border-radius: 6px;
+            min-height: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            border-left: 4px solid #475569;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🔒 정보 보안 아카데미 🔒</h2>
+    
+    <!-- 1번 기능: 비밀번호 검사기 -->
+    <div class="section">
+        <h3>🔍 내 비밀번호 보안 등급 확인</h3>
+        <input type="text" id="userPassword" placeholder="검사할 비밀번호를 입력하세요" oninput="checkStrength()">
+        <div class="result-box" id="checkResult">비밀번호를 입력하면 실시간 검사합니다.</div>
+    </div>
+
+    <!-- 2번 기능: 무작위 비밀번호 생성기 -->
+    <div class="section">
+        <h3>⚡ 안전한 비밀번호 자동 생성</h3>
+        <input type="number" id="pwLength" placeholder="원하는 길이 (기본값: 12)" min="4" max="30">
+        <button onclick="generatePassword()">비밀번호 생성하기</button>
+        <div class="result-box" id="generateResult" style="border-left-color: #38bdf8; user-select: all; cursor: pointer;" title="클릭하여 복사">여기에 생성됩니다.</div>
+    </div>
+</div>
+
+<script>
+    // 1. 보안 등급 검사 함수
+    function checkStrength() {
+        const password = document.getElementById('userPassword').value;
+        const resultBox = document.getElementById('checkResult');
+        
+        if (!password) {
+            resultBox.innerHTML = "비밀번호를 입력하면 실시간 검사합니다.";
+            resultBox.style.borderLeftColor = "#475569";
+            return;
+        }
+
+        const length = password.length;
+        const hasUpper = /[A-Z]/.test(password);
+        const hasLower = /[a-z]/.test(password);
+        const hasDigit = /[0-9]/.test(password);
+        const hasSpec = /[^A-Za-z0-9]/.test(password);
+
+        // 만족하는 조건 개수 계산
+        const score = [hasUpper, hasLower, hasDigit, hasSpec].filter(Boolean).length;
+
+        // 등급 판정 및 색상 변경
+        if (length >= 10 && score === 4) {
+            resultBox.innerHTML = "보안성: 🔥 아주 강력함 (안전)";
+            resultBox.style.borderLeftColor = "#22c55e"; // 초록
+        } else if (length >= 8 && score >= 3) {
+            resultBox.innerHTML = "보안성: 🛡️ 양호함 (사용 가능)";
+            resultBox.style.borderLeftColor = "#3b82f6"; // 파랑
+        } else if (length >= 6 && score >= 2) {
+            resultBox.innerHTML = "보안성: ⚠️ 취약함 (해킹 위험)";
+            resultBox.style.borderLeftColor = "#eab308"; // 노랑
+        } else {
+            resultBox.innerHTML = "보안성: ❌ 매우 위험함 (사용 불가)";
+            resultBox.style.borderLeftColor = "#ef4444"; // 빨강
+        }
+    }
+
+    // 2. 안전한 비밀번호 생성 함수
+    function generatePassword() {
+        let length = parseInt(document.getElementById('pwLength').value);
+        if (isNaN(length)) length = 12; // 기본값
+        
+        if (length < 4) {
+            alert("⚠️ 보안을 위해 최소 4자리 이상 입력해 주세요.");
+            return;
+        }
+        if (length > 30) {
+            alert("⚠️ 비밀번호는 최대 30자리까지만 생성 가능합니다.");
+            return;
+        }
+
+        const upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const lowerChars = "abcdefghijklmnopqrstuvwxyz";
+        const digitChars = "0123456789";
+        const specChars = "!@#$%^&*()_+~`|}{[]:;?><,./-=";
+        const allChars = upperChars + lowerChars + digitChars + specChars;
+
+        let password = "";
+        
+        // 무작위 암호 생성 알고리즘 (웹 브라우저의 암호학적 난수 사용)
+        const array = new Uint32Array(length);
+        window.crypto.getRandomValues(array);
+
+        for (let i = 0; i < length; i++) {
+            password += allChars[array[i] % allChars.length];
+        }
+
+        const resultBox = document.getElementById('generateResult');
+        resultBox.innerText = password;
+    }
+
+    // 결과 클릭 시 자동 복사 기능
+    document.getElementById('generateResult').addEventListener('click', function() {
+        if(this.innerText !== "여기에 생성됩니다.") {
+            navigator.clipboard.writeText(this.innerText);
+            alert("📋 비밀번호가 클립보드에 복사되었습니다!");
+        }
+    });
+</script>
+
+</body>
+</html>
